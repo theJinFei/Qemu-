@@ -1,14 +1,12 @@
 # qemu安装
 ## qemu相关介绍
 
-qemu是什么，简单来说它是一个虚拟机的管理器，类似Virtualbox之类的。为了使虚机达到接近主机的性能，一般会结合kvm（或者Xen）对硬件虚拟化。kvm负责cpu+mem虚拟化，但kvm不能模拟其他设备；qemu负责模拟IO设备（网卡，usb等），两者结合能实现真正意义上的全系统仿真。kvm与qemu的结构如图所示：
-
-具体可参考
-> http://liushy.com/2017/04/29/libvirt-qemu/
+qemu是什么，简单来说它是一个虚拟机的管理器，类似Virtualbox之类的。为了使虚机达到接近主机的性能，一般会结合kvm（或者Xen）对硬件虚拟化。kvm负责cpu+memory虚拟化，但kvm不能模拟其他设备；qemu负责模拟IO设备（网卡，usb等），两者结合能实现真正意义上的全系统仿真。
+ 
 
 ## QEMU模拟器基本原理
 作为系统模拟器时，会模拟出一台能够独立运行操作系统的虚拟机。如下图所示，每个虚拟机对应主机(Host)中的一个QEMU进程，而虚拟机的vCPU对应QEMU进程的一个线程。
-![Qemu与硬件的关系](https://static.oschina.net/uploads/img/201702/21145729_5FGx.png "区块链")
+![Qemu与硬件的关系](https://static.oschina.net/uploads/img/201702/21145729_5FGx.png "Qemu模拟器与宿主host之间的关系")
 
 系统虚拟化最主要是虚拟出CPU、内存及I/O设备。虚拟出的CPU称之为vCPU，QEMU为了提升效率，借用KVM、XEN等虚拟化技术，直接利用硬件对虚拟化的支持，在主机上安全地运行虚拟机代码(需要硬件支持)。
 
@@ -53,37 +51,96 @@ configure脚本用于生成Makefile，其选项可以用./configure --help查看
 
 ```
 
-## 使用Qemu创建启动镜像
+## Qemu的启动
+### 下载迷你版的镜像即可
+`
+wget https://mirror.umd.edu/centos/7/isos/x86_64/CentOS-7-x86_64-Minimal-1810.iso
+`
+### 利用安装好的将镜像挂载成只读的
+`
+mount /home/ljf/qemu/CentOS-7-x86_64-Minimal-1810.iso /mnt/ -o loop
+`
+### 使用qemu-img创建启动镜像(这里以及一下步骤使用师兄已经安装好的qemu命令来操作)
+`
+/home/zjc/bin/qemu-3.0-pmv/bin/qemu-img create centos.img 10G
+centos.img是镜像文件的名字，10G是镜像文件大小。镜像文件创建完成后，可使用qemu-system-x86来启动x86架构的虚拟机。
+`
+### 装载
+`
+/home/zjc/bin/qemu-3.0-pmv/bin/qemu-system-x86_64 -m 2048 -enable-kvm -smp 2 ./centos.img -cdrom ./CentOS-7-x86_64-Minimal-1810.iso --nographic -bios /home/zjc/bin/qemu-3.0-pmv/share/qemu/bios.bin -append console=ttyS0 -kernel /mnt/isolinux/vmlinuz -initrd /mnt/isolinux/initrd.img
+需要指定kernel、initrd、append参数 
+由于是使用 --nographic 以非图形界面的方式启动，所以需要重定向guest的console，所以需要“-append console=ttyS0”参数，而使用该参数是必须要使用-kernel参数的，因为无法直接将append中的内核命令行参数传递到硬盘、CDROM等里面的kernel中去。
+`
+详细参数可参考：
+> http://smilejay.com/2013/12/qemu-kvm-install-guest-in-text-mode/
 
+### 使用非图形化界面 --nographic 启动镜像
+`
+/home/zjc/bin/qemu-3.0-pmv/bin/qemu-system-x86_64 centos.img -m 2048 -enable-kvm --nographic
+`
+### 启动
+加载出一个只可以输入指定字符的图形化界面，配置相关信息，比如时区，管理员用户，密码等等，配置完之后就可以正常启动了。
 
+### 网络配置
+这个时候达到的效果应该是虚拟机能够正确启动，但是网络不通，效果是宿主ping不通虚拟机，虚拟机之间也不能互相ping通，主机ping不通虚拟机。下面需要进行网络配置这一块。
 
-## Qemu参数启动
+#### 虚拟机ping通主机虚拟机之间互相ping通
+
+##### 通过在主机上搭建虚拟网桥来实现网络互通
+
+参考资料：
+> https://blog.csdn.net/hzhsan/article/details/44098537
+
+![网桥设备示意图](https://img-blog.csdn.net/20150327174701204 "通过桥接模式 网络配置模拟器与宿主host之间的关系")
+1. 搭建虚拟网桥
 ```
-sudo yum install qemu 
-sudo yum install qemu 
-sudo yum install qemu 
+cd /etc/sysconfig/network-scripts/
+ls           # 会列出网络配置的相关信息 在当前文件夹内新建一个虚拟网桥 br0
+vi ifcfg-br0 # 编辑虚拟网桥的信息
+    DEVICE="br0"            # 网桥名字
+    ONBOOT="yes"            # 开启
+    TYPE="Bridge"           # 设置桥接模式
+    BOOTPROTO=none          # 这一点不知道为啥。。
+    IPADDR=192.168.10.1     # 网桥的ip地址
+    NETMASK=255.255.255.0   # 掩码
+    NM_CONTROLLED=no
+    DELAY=0
 ```
+2. 编辑修改网络设备脚本文件，修改网卡设备em3（此时的机器）
+```
+vi ifcfg-em3 # 编辑主机设备的网卡信息
+    DEVICE="em3"            # 网桥名字
+    ONBOOT="yes"            # 开启
+    TYPE="Ethernet"         # 以太网
+    BOOTPROTO=none          # 这一点不知道为啥。。
+    HWADDR=AA:BB:CC:DD:EE:FF # ?
+    NM_CONTROLLED=no
+    BRIDGE=br0              # 与上步虚拟网桥进行绑定
+```
+3. 重启网络服务
 
+`
+sudo service network restart
+`
 
-## Qemu网络配置
+4. 查看虚拟机此时的ip是否生效
+`
+ip addr show
+`
+5. 这时候可以达到的效果是虚拟机能够互相ping通，宿舍与虚拟机能够ping通，但是虚拟机仍不能访问外网
+注意：如果配置了多台虚拟机，需要在qemu启动命令上有所变化，应该手动指定 mac 地址防止多个 guest 的 mac地址 重复导致 guest 之间不能互相 ping 通，比如：
+`
+qemu-system-x86_64 -m 1000 -enable-kvm centos.img -net nic,macaddr=52:54:00:12:34:57 -net bridge,br=br0 -vnc :1
+`
 
-### 新建虚拟网桥
+6. 在上述虚拟机与主机，虚拟机与虚拟机之间能够互相ping通的的基础上，实现虚拟机通过无线接口的网络连接互联网，相当于 host 做了一个 NAT。
+- 参考 > http://blog.jcix.top/2016-12-30/qemu_bridge/
+- 开启路由转发：编辑 /etc/sysctl.conf 配置文件，将 net.ipv4.ip_forward = 0 修改为net.ipv4.ip_forward = 1， 重启 host。
+- 利用 iptables 搭建 MASQUERADE 模式的 NAT，执行下面两条命令的一条即可，本实验中效果相同：
+`
+iptables -t nat -A POSTROUTING -s "192.168.10.0/255.255.255.0" ! -d "192.168.10.0/255.255.255.0" -j MASQUERADE 或者
+iptables -t nat -A POSTROUTING -s "192.168.10.0/255.255.255.0" -o em1 -j MASQUERADE 
+`
 
-### 为各个guest分配静态ip
-
-### 使用host网络 访问外网
-
-- 这是列表1
-- 这是列表2
-- 这是列表3
-
-
-* 这是列表1
-* 这是列表2
-* 这是列表3
-
-1. 这是列表1
-2. 这是列表2
-3. 这是列表3
-
+7. 完成网络配置部分
 
