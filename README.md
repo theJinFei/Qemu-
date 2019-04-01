@@ -136,7 +136,11 @@ qemu-system-x86_64 -m 1000 -enable-kvm centos.img -net nic,macaddr=52:54:00:12:3
 
 7. 在上述虚拟机与主机，虚拟机与虚拟机之间能够互相ping通的的基础上，实现虚拟机通过无线接口的网络连接互联网，相当于 host 做了一个 NAT。
 - 参考 > http://blog.jcix.top/2016-12-30/qemu_bridge/
-- 开启路由转发：编辑 /etc/sysctl.conf 配置文件，将 net.ipv4.ip_forward = 0 修改为net.ipv4.ip_forward = 1， 重启 host。
+- 开启路由转发：
+
+`
+sysctl -w net.ipv4.ip_forward=1 # 执行命令，开启ipv4 路由转发，并重启host
+` 
 - 利用 iptables 搭建 MASQUERADE 模式的 NAT，执行下面两条命令的一条即可，本实验中效果相同：
 ```
 iptables -t nat -A POSTROUTING -s "192.168.10.0/255.255.255.0" ! -d "192.168.10.0/255.255.255.0" -j MASQUERADE 或者
