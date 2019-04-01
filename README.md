@@ -6,7 +6,12 @@ qemu是什么，简单来说它是一个虚拟机的管理器，类似Virtualbox
 具体可参考
 > http://liushy.com/2017/04/29/libvirt-qemu/
 
+## 安装环境说明
+
 ## Qemu安装
+'
+sudo yum install qemu 
+'
 
 ## Qemu参数启动
 
