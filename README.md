@@ -9,11 +9,17 @@ qemu是什么，简单来说它是一个虚拟机的管理器，类似Virtualbox
 ## 安装环境说明
 
 ## Qemu安装
-'
+·
 sudo yum install qemu 
-'
+·
 
 ## Qemu参数启动
+···
+sudo yum install qemu 
+sudo yum install qemu 
+sudo yum install qemu 
+···
+
 
 ## Qemu网络配置
 
