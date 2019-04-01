@@ -22,6 +22,7 @@ QEMU在主机用户态模拟虚拟机的硬件设备，vCPU对硬件的操作结
 ## 安装环境说明
 
 - Qemu命令行安装
+
 `
 sudo yum install qemu 
 `
@@ -122,11 +123,13 @@ sudo service network restart # 配置好ip后，重启网络服务，可能需�
 ```
 
 5. 查看虚拟机此时的ip是否生效
+
 `
 ip addr show
 `
 6. 这时候可以达到的效果是虚拟机能够互相ping通，宿舍与虚拟机能够ping通，但是虚拟机仍不能访问外网
 注意：如果配置了多台虚拟机，需要在qemu启动命令上有所变化，应该手动指定 mac 地址防止多个 guest 的 mac地址 重复导致 guest 之间不能互相 ping 通，比如：
+
 `
 qemu-system-x86_64 -m 1000 -enable-kvm centos.img -net nic,macaddr=52:54:00:12:34:57 -net bridge,br=br0 -vnc :1
 `
