@@ -30,25 +30,17 @@ sudo yum install qemu
 - Qemu源码编译安装
 ```
 wget http://download.qemu-project.org/qemu-2.70.tar.xz
-
 tar xvJf qemu-2.7.0.tar.xz
-
 cd qemu-2.70
-
 ./configure --enable-kvm --enable-debug --enable-vnc --enable-werror  --target-list="x86_64-softmmu" # 需要添加kvm硬件支持
-
 make
-
 sudo make install
 
-
 configure脚本用于生成Makefile，其选项可以用./configure --help查看。这里使用到的选项含义如下：
-
 --enable-kvm：编译KVM模块，使QEMU可以利用KVM来访问硬件提供的虚拟化服务。
 --enable-vnc：启用VNC。
 --enalbe-werror：编译时，将所有的警告当作错误处理。
 --target-list：选择目标机器的架构。默认是将所有的架构都编译，但为了更快的完成编译，指定需要的架构即可。
-
 ```
 
 ## Qemu的启动
@@ -66,11 +58,11 @@ mount /home/ljf/qemu/CentOS-7-x86_64-Minimal-1810.iso /mnt/ -o loop
 centos.img是镜像文件的名字，10G是镜像文件大小。镜像文件创建完成后，可使用qemu-system-x86来启动x86架构的虚拟机。
 `
 ### 装载
-`
+```
 /home/zjc/bin/qemu-3.0-pmv/bin/qemu-system-x86_64 -m 2048 -enable-kvm -smp 2 ./centos.img -cdrom ./CentOS-7-x86_64-Minimal-1810.iso --nographic -bios /home/zjc/bin/qemu-3.0-pmv/share/qemu/bios.bin -append console=ttyS0 -kernel /mnt/isolinux/vmlinuz -initrd /mnt/isolinux/initrd.img
-需要指定kernel、initrd、append参数 
+# 需要指定kernel、initrd、append参数 
 由于是使用 --nographic 以非图形界面的方式启动，所以需要重定向guest的console，所以需要“-append console=ttyS0”参数，而使用该参数是必须要使用-kernel参数的，因为无法直接将append中的内核命令行参数传递到硬盘、CDROM等里面的kernel中去。
-`
+```
 详细参数可参考：
 > http://smilejay.com/2013/12/qemu-kvm-install-guest-in-text-mode/
 
@@ -92,9 +84,9 @@ centos.img是镜像文件的名字，10G是镜像文件大小。镜像文件创�
 ![网桥设备示意图](https://img-blog.csdn.net/20150327174701204 "通过桥接模式 网络配置模拟器与宿主host之间的关系")
 1. 搭建虚拟网桥
 ```
-cd /etc/sysconfig/network-scripts/
-ls           # 会列出网络配置的相关信息 在当前文件夹内新建一个虚拟网桥 br0
-vi ifcfg-br0 # 编辑虚拟网桥的信息
+cd /etc/sysconfig/network-scripts/ # centos下网络配置文件夹
+ls                                 # 会列出网络配置的相关信息 在当前文件夹内新建一个虚拟网桥 br0
+vi ifcfg-br0                # 编辑虚拟网桥的信息
     DEVICE="br0"            # 网桥名字
     ONBOOT="yes"            # 开启
     TYPE="Bridge"           # 设置桥接模式
@@ -106,7 +98,7 @@ vi ifcfg-br0 # 编辑虚拟网桥的信息
 ```
 2. 编辑修改网络设备脚本文件，修改网卡设备em3（此时的机器）
 ```
-vi ifcfg-em3 # 编辑主机设备的网卡信息
+vi ifcfg-em3                # 编辑主机设备的网卡信息
     DEVICE="em3"            # 网桥名字
     ONBOOT="yes"            # 开启
     TYPE="Ethernet"         # 以太网
@@ -121,24 +113,37 @@ vi ifcfg-em3 # 编辑主机设备的网卡信息
 sudo service network restart
 `
 
-4. 查看虚拟机此时的ip是否生效
+4. 给虚拟机指定的静态ip地址
+参考：
+> https://lintut.com/how-to-setup-network-after-rhelcentos-7-minimal-installation/
+```
+nmtui # 该命令会进入配置指定的ip界面，将配置的ip，子网掩码，与上述新建的网桥保持到一个网段上即可。
+sudo service network restart # 配置好ip后，重启网络服务，可能需要等一段时间才生效，我每次是启动机器后，隔了大概几十s后，才能正确分配ip
+```
+
+5. 查看虚拟机此时的ip是否生效
 `
 ip addr show
 `
-5. 这时候可以达到的效果是虚拟机能够互相ping通，宿舍与虚拟机能够ping通，但是虚拟机仍不能访问外网
+6. 这时候可以达到的效果是虚拟机能够互相ping通，宿舍与虚拟机能够ping通，但是虚拟机仍不能访问外网
 注意：如果配置了多台虚拟机，需要在qemu启动命令上有所变化，应该手动指定 mac 地址防止多个 guest 的 mac地址 重复导致 guest 之间不能互相 ping 通，比如：
 `
 qemu-system-x86_64 -m 1000 -enable-kvm centos.img -net nic,macaddr=52:54:00:12:34:57 -net bridge,br=br0 -vnc :1
 `
 
-6. 在上述虚拟机与主机，虚拟机与虚拟机之间能够互相ping通的的基础上，实现虚拟机通过无线接口的网络连接互联网，相当于 host 做了一个 NAT。
+7. 在上述虚拟机与主机，虚拟机与虚拟机之间能够互相ping通的的基础上，实现虚拟机通过无线接口的网络连接互联网，相当于 host 做了一个 NAT。
 - 参考 > http://blog.jcix.top/2016-12-30/qemu_bridge/
 - 开启路由转发：编辑 /etc/sysctl.conf 配置文件，将 net.ipv4.ip_forward = 0 修改为net.ipv4.ip_forward = 1， 重启 host。
 - 利用 iptables 搭建 MASQUERADE 模式的 NAT，执行下面两条命令的一条即可，本实验中效果相同：
-`
+```
 iptables -t nat -A POSTROUTING -s "192.168.10.0/255.255.255.0" ! -d "192.168.10.0/255.255.255.0" -j MASQUERADE 或者
 iptables -t nat -A POSTROUTING -s "192.168.10.0/255.255.255.0" -o em1 -j MASQUERADE 
+```
+
+8. 完成网络配置部分,查看是否可以ping通
+`
+ping baidu.com
 `
 
-7. 完成网络配置部分
+
 
